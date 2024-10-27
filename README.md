@@ -425,13 +425,176 @@ Esta estrategia **reduce la carga de cálculo y comunicación** en cada proceso 
 
 ### Explicacion del Código
 
+1. **Inicialización de MPI**:
+
+   ```cpp
+   MPI_Init(&argc, &argv);
+   MPI_Comm_size(MPI_COMM_WORLD, &size);
+   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+   ```
+
+   - `MPI_Init`: inicializa el entorno MPI.
+   - `MPI_Comm_size`: obtiene el número total de procesos (`size`).
+   - `MPI_Comm_rank`: obtiene el identificador del proceso actual (`rank`).
+
+2. **Distribución de Filas**:
+
+   ```cpp
+   int local_n = n / size; // Número de filas asignadas a cada proceso
+   std::vector<double> local_matrix(local_n * m); // Submatriz para cada proceso
+   std::vector<double> local_c(local_n); // Resultado parcial para cada proceso
+   ```
+
+   - `local_n` determina cuántas filas de la matriz se asignan a cada proceso.
+   - `local_matrix` contiene la submatriz que cada proceso manejará.
+   - `local_c` almacena el resultado parcial de la multiplicación para cada proceso.
+
+3. **Inicialización del Vector y la Matriz Local**:
+
+   ```cpp
+   std::vector<double> b(m); // Vector de entrada
+   for (int j = 0; j < m; j++)
+       b[j] = j + 1; // Inicialización del vector
+
+   int start_row = rank * local_n;
+   for (int i = 0; i < local_n; i++)
+       for (int j = 0; j < m; j++)
+           local_matrix[i * m + j] = (start_row + i) + j;
+   ```
+
+   - Se inicializa el vector `b` con valores de 1 a `m`.
+   - La submatriz `local_matrix` se llena con valores basados en el índice del proceso.
+
+4. **Impresión de la Matriz y el Vector en el Proceso 0**:
+
+   ```cpp
+   if (rank == 0)
+   {
+       std::cout << "Matrix:\n";
+       for (int i = 0; i < n; i++)
+       {
+           for (int j = 0; j < m; j++)
+               std::cout << i + j << " ";
+           std::cout << "\n";
+       }
+       std::cout << "\nVector:\n";
+       for (auto const &j : b)
+           std::cout << j << " ";
+       std::cout << "\n\n";
+       c.resize(n); // Reservar espacio para el resultado en el proceso 0
+   }
+   ```
+
+   - Solo el proceso 0 imprime la matriz y el vector iniciales y reserva espacio para el vector de resultados `c`.
+
+5. **Distribución del Vector**:
+
+   ```cpp
+   MPI_Bcast(b.data(), m, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+   ```
+
+   - `MPI_Bcast` envía el vector `b` desde el proceso 0 a todos los demás procesos.
+
+6. **Cálculo del Producto Local**:
+
+   ```cpp
+   matrix_vector_product(local_matrix, b, local_c, local_n, m);
+   ```
+
+   - La función `matrix_vector_product` calcula el producto de la submatriz local y el vector `b`.
+
+7. **Recolección de Resultados Parciales**:
+
+   ```cpp
+   MPI_Gather(local_c.data(), local_n, MPI_DOUBLE, c.data(), local_n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+   ```
+
+   - `MPI_Gather` recolecta los resultados parciales (`local_c`) de cada proceso y los reúne en el vector `c` del proceso 0.
+
+8. **Impresión del Resultado en el Proceso 0**:
+
+   ```cpp
+   if (rank == 0)
+   {
+       std::cout << "Result = ";
+       for (auto const &i : c)
+           std::cout << i << " ";
+       std::cout << "\n";
+   }
+   ```
+
+   - El proceso 0 imprime el resultado final de la multiplicación de la matriz por el vector.
+
+9. **Finalización de MPI**:
+
+   ```cpp
+   MPI_Finalize();
+   ```
+
+   - `MPI_Finalize` cierra el entorno MPI y libera los recursos asociados.
+
+10. **Producto de matriz por vector**:
+
+    - Se toma la submatriz local y el vector como entrada.
+    - Cada entrada del resultado `result[i]` se calcula como la suma del producto de la fila `i` de la submatriz local con el vector `vector`.
+
+    ```cpp
+    void matrix_vector_product(const std::vector<double> &matrix, const std::vector<double> &vector, std::vector<double> &result, int rows, int cols)
+    {
+        for (int i = 0; i < rows; i++)
+        {
+            result[i] = 0.0;
+            for (int j = 0; j < cols; j++)
+                result[i] += matrix[i * cols + j] * vector[j];
+        }
+    }
+    ```
+
 ### Ejecución
 
 ```bash
-    mpic++ -o matrix_vector 4.cpp
-    mpirun -np <numero_procesos> ./matrix_vector
+    mpic++ -o matrix_vector_mult 4.cpp
+    mpirun -np <numero_procesos> ./matrix_vector_mult
 ```
 
 ### Visualización
 
 ![Ejecución](.docs/4.png)
+
+## Problema 3.8
+
+El problema de **ordenación paralela por mezcla** (parallel merge sort) implica dividir un conjunto de claves entre varios procesos, de manera que cada proceso pueda trabajar en una parte de la lista de forma independiente y en paralelo. A continuación se describe cómo se desarrolla este proceso.
+
+### Descripción del Proceso
+
+1. **Asignación de Claves**:
+
+   - Comienza con \( n / \text{comm_sz} \) claves asignadas a cada proceso, donde \( n \) es el número total de claves y \( \text{comm_sz} \) es el número de procesos involucrados.
+   - Cada proceso generará su propia lista de números enteros aleatorios.
+
+2. **Ordenación Local**:
+
+   - Cada proceso ordena su lista local utilizando un algoritmo de ordenación (como quicksort o mergesort).
+   - Esto se realiza de manera independiente en cada proceso.
+
+3. **Comunicación en Árbol**:
+
+   - Para combinar todas las listas ordenadas, se utiliza una comunicación estructurada en forma de árbol, similar a la que se emplea para realizar una suma global.
+   - Cuando un proceso recibe las claves de otro proceso, fusiona esas nuevas claves en su lista de claves ya ordenadas.
+
+4. **Recolección en el Proceso 0**:
+   - Al final del proceso de fusión, todas las claves ordenadas se reúnen en el proceso 0.
+   - Este proceso imprimirá la lista final de claves ordenadas.
+
+### Explicación del Código
+
+### Ejecución
+
+```bash
+    mpic++ -o merge_sort 5.cpp
+    mpirun -np <numero_procesos> ./merge_sort
+```
+
+### Visualización
+
+![Ejecución](.docs/5.png)

@@ -1,73 +1,80 @@
-#include <mpi.h>
 #include <iostream>
 #include <vector>
-#include <cstdlib>
+#include <mpi.h>
+
+#define n 4
+#define m 4
+
+void matrix_vector_product(const std::vector<double> &matrix, const std::vector<double> &vector, std::vector<double> &result, int rows, int cols)
+{
+    for (int i = 0; i < rows; i++)
+    {
+        result[i] = 0.0;
+        for (int j = 0; j < cols; j++)
+            result[i] += matrix[i * cols + j] * vector[j];
+    }
+}
 
 int main(int argc, char *argv[])
 {
-    int rank, comm_sz;
-    const int n = 4; // Dimensión de la matriz cuadrada
-    int block_size;
-
+    int rank, size;
     MPI_Init(&argc, &argv);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &comm_sz);
 
-    // Verifica que n sea divisible por comm_sz
-    if (n % comm_sz != 0)
-    {
-        if (rank == 0)
-            std::cerr << "Error: n debe ser divisible entre el número de procesos." << std::endl;
-        MPI_Finalize();
-        return -1;
-    }
+    int local_n = n / size;                        // Número de filas de la matriz asignadas a cada proceso
+    std::vector<double> b(m);                      // Vector de entrada
+    std::vector<double> c;                         // Resultado final en el proceso 0
+    std::vector<double> local_matrix(local_n * m); // Submatriz para cada proceso
+    std::vector<double> local_c(local_n);          // Resultado parcial en cada proceso
 
-    block_size = n / comm_sz; // Tamaño del bloque de filas para cada proceso
+    // Inicializar el vector y la matriz local en cada proceso
+    for (int j = 0; j < m; j++)
+        b[j] = j + 1; // Ejemplo de inicialización para el vector
 
-    // Proceso 0 inicializa la matriz y el vector completos
-    std::vector<int> matrix(n * n), vector(n), local_matrix(block_size * n), local_result(block_size, 0); // Cambié local_result a block_size
+    int start_row = rank * local_n;
+    for (int i = 0; i < local_n; i++)
+        for (int j = 0; j < m; j++)
+            local_matrix[i * m + j] = (start_row + i) + j;
 
+    // Imprimir la matriz y el vector en el proceso 0
     if (rank == 0)
     {
-        // Inicializar la matriz y el vector con valores (por simplicidad, usaremos valores arbitrarios)
+        std::cout << "Matrix:\n";
         for (int i = 0; i < n; i++)
         {
-            vector[i] = 1; // Vector de 1s para simplificar la verificación
-            for (int j = 0; j < n; j++)
-                matrix[i * n + j] = i + j; // Ejemplo de matriz
+            for (int j = 0; j < m; j++)
+                std::cout << i + j << " ";
+            std::cout << "\n";
         }
+
+        std::cout << "\nVector:\n";
+        for (auto const &j : b)
+            std::cout << j << " ";
+        std::cout << "\n\n";
+
+        c.resize(n); // Reservar espacio para el resultado final en el proceso 0
     }
 
-    // Distribuir bloques de filas a cada proceso
-    MPI_Scatter(matrix.data(), block_size * n, MPI_INT, local_matrix.data(), block_size * n, MPI_INT, 0, MPI_COMM_WORLD);
+    // Enviar el vector `b` a todos los procesos
+    MPI_Bcast(b.data(), m, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-    // Distribuir el vector completo a cada proceso
-    MPI_Bcast(vector.data(), n, MPI_INT, 0, MPI_COMM_WORLD);
+    // Calcular el producto local (submatriz * vector)
+    matrix_vector_product(local_matrix, b, local_c, local_n, m);
 
-    // Multiplicación local en cada proceso
-    for (int i = 0; i < block_size; i++)
-    {
-        for (int j = 0; j < n; j++)
-        {
-            local_result[i] += local_matrix[i * n + j] * vector[j]; // Cada proceso suma su bloque de resultados
-        }
-    }
+    // Recoger los resultados parciales de cada proceso en el vector final `c`
+    MPI_Gather(local_c.data(), local_n, MPI_DOUBLE, c.data(), local_n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-    // Reducir y recolectar los resultados parciales en el proceso 0
-    std::vector<int> global_result(n, 0);
-    MPI_Reduce(local_result.data(), global_result.data(), block_size, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD); // Cambié n a block_size
-
-    // Proceso 0 muestra el resultado final
+    // Imprimir el resultado en el proceso 0
     if (rank == 0)
     {
-        std::cout << "Resultado final de la multiplicación matriz-vector:" << std::endl;
-        for (int i = 0; i < n; i++)
-        {
-            std::cout << global_result[i] << " ";
-        }
-        std::cout << std::endl;
+        std::cout << "Result = ";
+        for (auto const &i : c)
+            std::cout << i << " ";
+        std::cout << "\n";
     }
 
     MPI_Finalize();
+
     return 0;
 }
