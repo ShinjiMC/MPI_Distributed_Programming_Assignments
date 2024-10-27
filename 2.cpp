@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
     // El proceso 0 estima y muestra el valor de pi
     if (rank == 0)
     {
-        double pi_estimate = 4.0 * global_number_in_circle / total_tosses;
+        double pi_estimate = 4.0 * global_number_in_circle / ((double)total_tosses);
         std::cout << "Estimación de pi: " << pi_estimate << std::endl;
     }
 
