@@ -83,15 +83,34 @@ El problema se basa en una simulación para estimar el valor de π utilizando el
 
 ### 1. Configuración del Tablero
 
-- Se tiene un tablero de dardos cuadrado con un área de $$2 \text{ pies} \times 2 \text{ pies}$$ El centro del tablero (el bullseye) está en el origen del sistema de coordenadas.
-- Dentro de este cuadrado, hay un círculo inscrito con un radio de 1 pie. El área del círculo es $$\pi \text{ pies}^2$$ y la del cuadrado es $$4 \text{ pies}^2$$
+- Se tiene un tablero de dardos cuadrado con un área de
+
+$$
+2 \text{ pies} \times 2 \text{ pies}
+$$
+
+El centro del tablero (el bullseye) está en el origen del sistema de coordenadas.
+
+- Dentro de este cuadrado, hay un círculo inscrito con un radio de 1 pie. El área del círculo es
+
+$$
+\pi \text{ pies}^2
+$$
+
+y la del cuadrado es
+
+$$
+4 \text{ pies}^2
+$$
 
 ### 2. Proporción de Áreas
 
 - La razón entre el área del círculo y el área del cuadrado es:
+
   $$
   \frac{\text{Área del círculo}}{\text{Área del cuadrado}} = \frac{\pi}{4}
   $$
+
 - Por lo tanto, si lanzamos dardos de manera aleatoria sobre el tablero, la fracción de dardos que caerán dentro del círculo debería ser aproximadamente igual a $$ \frac{\pi}{4} $$
 
 ### 3. Simulación de Lanzamientos
@@ -99,17 +118,21 @@ El problema se basa en una simulación para estimar el valor de π utilizando el
 - Se realiza un número total de lanzamientos de dardos.
 - Para cada lanzamiento, se generan dos números aleatorios **x** y **y** que representan la posición del dardo en el cuadrado, donde ambos están distribuidos uniformemente entre -1 y 1.
 - Se calcula la distancia al origen utilizando la fórmula:
+
   $$
-  \text{distancia cuadrada} = x^2 + y^2
+      \text{distancia cuadrada} = x^2 + y^2
   $$
+
 - Si esta distancia cuadrada es menor o igual a 1, el dardo ha caído dentro del círculo, y se incrementa un contador.
 
 ### 4. Estimación de π
 
 - Después de realizar todos los lanzamientos, se estima el valor de π utilizando la fórmula:
+
   $$
-  \pi \approx 4 \times \frac{\text{número en círculo}}{\text{total de lanzamientos}}
+    \pi \approx 4 \times \frac{\text{número en círculo}}{\text{total de lanzamientos}}
   $$
+
 - Este cálculo se realiza en el proceso 0.
 
 ### 5. Paralelización con MPI
