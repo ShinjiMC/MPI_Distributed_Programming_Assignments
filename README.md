@@ -142,6 +142,17 @@ $$
 - Cada proceso realizará un número local de lanzamientos y contará cuántos dardos cayeron dentro del círculo.
 - Finalmente, se utilizará `MPI_Reduce` para sumar los contadores locales de dardos que cayeron en el círculo, obteniendo así un total global que se usará para estimar π en el proceso 0.
 
+### Ejecución
+
+```bash
+    mpic++ -o montecarlo_pi 2.cpp
+    mpirun -np <numero_procesos> ./montecarlo_pi <numero_lanzamientos>
+```
+
+### Visualización
+
+![Ejecución](.docs/2.png)
+
 ## Problema 3.3
 
 El problema consiste en implementar un programa en MPI (Message Passing Interface) para calcular la **suma global de valores distribuidos entre múltiples procesos** utilizando una estructura en forma de árbol. Esto permite que la suma se realice de manera eficiente, minimizando la cantidad de mensajes necesarios al ir combinando valores de procesos en una jerarquía similar a un árbol binario.
@@ -347,12 +358,12 @@ Aquí tienes un desglose detallado del problema y su solución propuesta:
    - Si hay \( p \) procesos, entonces cada proceso recibe
 
 $$
-\frac{n}{p} 
-$$ 
-   
-   columnas.
+\frac{n}{p}
+$$
 
-   - Por ejemplo, si
+columnas.
+
+- Por ejemplo, si
 
 $$
 \( n = 8 \)
@@ -588,7 +599,7 @@ El problema de **ordenación paralela por mezcla** (parallel merge sort) implica
 
 1. **Asignación de Claves**:
 
-   - Comienza con **n/comm_sz** claves asignadas a cada proceso, donde  n  es el número total de claves y comm_szes el número de procesos involucrados.
+   - Comienza con **n/comm_sz** claves asignadas a cada proceso, donde n es el número total de claves y comm_szes el número de procesos involucrados.
    - Cada proceso generará su propia lista de números enteros aleatorios.
 
 2. **Ordenación Local**:
@@ -606,6 +617,107 @@ El problema de **ordenación paralela por mezcla** (parallel merge sort) implica
    - Este proceso imprimirá la lista final de claves ordenadas.
 
 ### Explicación del Código
+
+1. **Inicialización de MPI**:
+   - `MPI_Init` inicializa MPI.
+   - `MPI_Comm_size` y `MPI_Comm_rank` obtienen el número de procesos y el rango del proceso actual.
+
+```cpp
+    std::vector<int> global_data;
+    if (rank == 0)
+    {
+        std::set<int> unique_numbers;
+        std::default_random_engine generator;
+        std::uniform_int_distribution<int> distribution(1, 100);
+        while (unique_numbers.size() < n)
+        {
+            unique_numbers.insert(distribution(generator));
+        }
+        global_data.assign(unique_numbers.begin(), unique_numbers.end());
+        std::cout << "Valores aleatorios generados (únicos):\n";
+        for (const auto &value : global_data)
+        {
+            std::cout << value << " ";
+        }
+        std::cout << std::endl;
+    }
+```
+
+2. **Generación de Números Aleatorios Únicos en Proceso 0**:
+   - Proceso 0 genera `n` números aleatorios únicos, utilizando un `std::set` para asegurar que no se repitan.
+   - Luego, estos números se imprimen y se distribuyen entre los procesos.
+
+```cpp
+    global_data.resize(n);
+    MPI_Bcast(global_data.data(), n, MPI_INT, 0, MPI_COMM_WORLD);
+```
+
+3. **Difusión del Vector Completo**:
+   - Se utiliza `MPI_Bcast` para enviar los datos generados por el proceso 0 a todos los procesos.
+
+```cpp
+    int local_n = n / size;
+    std::vector<int> local_data(local_n);
+    for (int i = 0; i < local_n; i++)
+    {
+        local_data[i] = global_data[rank * local_n + i];
+    }
+    std::sort(local_data.begin(), local_data.end());
+    std::cout << "Proceso " << rank << " datos locales:\n";
+    for (const auto &value : local_data)
+    {
+        std::cout << value << " ";
+    }
+    std::cout << std::endl;
+```
+
+4. **Asignación y Ordenación Local**:
+   - Cada proceso recibe una parte del `global_data` (su bloque de datos), de tamaño `local_n`.
+   - Ordena sus datos localmente usando `std::sort`.
+   - Cada proceso imprime sus datos locales para verificación.
+
+```cpp
+    std::vector<int> merged_data;
+    if (rank == 0)
+    {
+        merged_data = local_data;
+        for (int i = 1; i < size; i++)
+        {
+            std::vector<int> temp_data(local_n);
+            MPI_Recv(temp_data.data(), local_n, MPI_INT, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            std::vector<int> temp_merged_data(merged_data.size() + temp_data.size());
+            merge(merged_data, temp_data, temp_merged_data);
+            merged_data = std::move(temp_merged_data);
+        }
+    }
+    else
+    {
+        MPI_Send(local_data.data(), local_n, MPI_INT, 0, 0, MPI_COMM_WORLD);
+    }
+```
+
+5. **Fusión en Árbol en Proceso 0**:
+   - Proceso 0 recibe las listas ordenadas de los demás procesos usando `MPI_Recv`.
+   - Cada lista recibida se fusiona con el `merged_data` (el conjunto de datos previamente fusionados).
+   - La función `merge` ordena y combina dos vectores en uno solo.
+
+```cpp
+    if (rank == 0)
+    {
+        std::cout << "Resultado final ordenado:\n";
+        for (const auto &value : merged_data)
+        {
+            std::cout << value << " ";
+        }
+        std::cout << std::endl;
+    }
+
+    MPI_Finalize();
+    return 0;
+```
+
+6. **Impresión Final**:
+   - Proceso 0 imprime el resultado final después de la fusión.
 
 ### Ejecución
 
