@@ -107,9 +107,9 @@ $$
 
 - La razón entre el área del círculo y el área del cuadrado es:
 
-  $$
-  \frac{\text{Área del círculo}}{\text{Área del cuadrado}} = \frac{\pi}{4}
-  $$
+$$
+\frac{\text{Área del círculo}}{\text{Área del cuadrado}} = \frac{\pi}{4}
+$$
 
 - Por lo tanto, si lanzamos dardos de manera aleatoria sobre el tablero, la fracción de dardos que caerán dentro del círculo debería ser aproximadamente igual a $$ \frac{\pi}{4} $$
 
@@ -119,9 +119,9 @@ $$
 - Para cada lanzamiento, se generan dos números aleatorios **x** y **y** que representan la posición del dardo en el cuadrado, donde ambos están distribuidos uniformemente entre -1 y 1.
 - Se calcula la distancia al origen utilizando la fórmula:
 
-  $$
-      \text{distancia cuadrada} = x^2 + y^2
-  $$
+$$
+\text{distancia cuadrada} = x^2 + y^2
+$$
 
 - Si esta distancia cuadrada es menor o igual a 1, el dardo ha caído dentro del círculo, y se incrementa un contador.
 
@@ -129,9 +129,9 @@ $$
 
 - Después de realizar todos los lanzamientos, se estima el valor de π utilizando la fórmula:
 
-  $$
-    \pi \approx 4 \times \frac{\text{número en círculo}}{\text{total de lanzamientos}}
-  $$
+$$
+\pi \approx 4 \times \frac{\text{número en círculo}}{\text{total de lanzamientos}}
+$$
 
 - Este cálculo se realiza en el proceso 0.
 
@@ -149,7 +149,7 @@ El problema consiste en implementar un programa en MPI (Message Passing Interfac
 Supongamos que cada proceso tiene un valor igual a su propio rango (es decir, el proceso `0` tiene un valor de `0`, el proceso `1` tiene un valor de `1`, y así sucesivamente). Esto nos ayuda a anticipar la salida, ya que la suma esperada es la suma de los primeros `N` números enteros:
 
 $$
-    \text{suma esperada} = \frac{N \times (N - 1)}{2}
+\text{suma esperada} = \frac{N \times (N - 1)}{2}
 $$
 
 donde `N` es el número de procesos.
@@ -344,20 +344,39 @@ Aquí tienes un desglose detallado del problema y su solución propuesta:
 2. **Distribución por bloques de columnas**:
 
    - La matriz se divide en **bloques de columnas** en lugar de filas. Esto significa que cada proceso recibe un bloque de columnas contiguas.
-   - Si hay \( p \) procesos, entonces cada proceso recibe \( \frac{n}{p} \) columnas.
-   - Por ejemplo, si \( n = 8 \) y \( \text{comm_sz} = 4 \), entonces cada proceso recibe 2 columnas.
+   - Si hay \( p \) procesos, entonces cada proceso recibe
 
-3. **Lectura y distribución de la matriz**:
+$$
+\frac{n}{p} 
+$$ 
+   
+   columnas.
+
+   - Por ejemplo, si
+
+$$
+\( n = 8 \)
+$$
+
+y
+
+$$
+\( \text{comm sz} = 4 \)
+$$
+
+, entonces cada proceso recibe 2 columnas.
+
+4. **Lectura y distribución de la matriz**:
 
    - El proceso 0 lee toda la matriz y el vector.
    - A continuación, el proceso 0 distribuye los bloques de columnas de la matriz a los otros procesos usando un bucle de envíos. Cada proceso recibe un bloque específico de columnas y la copia completa del vector.
 
-4. **Multiplicación en cada proceso**:
+5. **Multiplicación en cada proceso**:
 
    - Cada proceso realiza una **multiplicación local** entre su bloque de columnas y el vector.
    - El resultado de cada proceso es un vector parcial de tamaño \( \frac{n}{p} \), que corresponde a la porción de la multiplicación asociada a sus columnas.
 
-5. **Recolección de resultados**:
+6. **Recolección de resultados**:
    - Para obtener el resultado completo de la multiplicación de la matriz por el vector, los procesos combinan sus resultados parciales.
    - Aquí se sugiere utilizar `MPI_Reduce_scatter`, que permite reducir y dispersar los resultados de manera eficiente:
      - La función realiza una reducción de todos los valores parciales (suma de los productos parciales) y distribuye la suma en las partes correspondientes a cada proceso.
@@ -569,7 +588,7 @@ El problema de **ordenación paralela por mezcla** (parallel merge sort) implica
 
 1. **Asignación de Claves**:
 
-   - Comienza con \( n / \text{comm_sz} \) claves asignadas a cada proceso, donde \( n \) es el número total de claves y \( \text{comm_sz} \) es el número de procesos involucrados.
+   - Comienza con **n/comm_sz** claves asignadas a cada proceso, donde  n  es el número total de claves y comm_szes el número de procesos involucrados.
    - Cada proceso generará su propia lista de números enteros aleatorios.
 
 2. **Ordenación Local**:
